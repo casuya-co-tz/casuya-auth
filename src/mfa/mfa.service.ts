@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
-import { MfaService, MfaSetupResult, MfaVerificationResult } from './mfa.service.interface';
+import { MfaService, MfaSetupResult, MfaVerificationResult, SendVerificationCodeResult } from './mfa.service.interface';
 import { MfaMethod } from '../interfaces';
 
 interface MfaState {
@@ -13,8 +13,15 @@ interface MfaState {
   usedBackupCodes: string[];
 }
 
+interface VerificationCodeEntry {
+  code: string;
+  expiresAt: number;
+  contactInfo: string;
+}
+
 export class DefaultMfaService implements MfaService {
   private readonly mfaStates: Map<string, MfaState> = new Map();
+  private readonly verificationCodes: Map<string, VerificationCodeEntry> = new Map();
   private readonly issuer: string;
 
   constructor(issuer: string = 'Casuya') {
@@ -73,11 +80,38 @@ export class DefaultMfaService implements MfaService {
       return { verified, error: verified ? undefined : 'Invalid code' };
     }
 
+    if (method === MfaMethod.SMS || method === MfaMethod.EMAIL) {
+      const key = this.verificationCodeKey(userId, method);
+      const entry = this.verificationCodes.get(key);
+
+      if (!entry) {
+        return { verified: false, error: 'No verification code sent. Request a new code.' };
+      }
+
+      if (Date.now() > entry.expiresAt) {
+        this.verificationCodes.delete(key);
+        return { verified: false, error: 'Verification code expired. Request a new code.' };
+      }
+
+      if (entry.code !== code) {
+        return { verified: false, error: 'Invalid verification code' };
+      }
+
+      this.verificationCodes.delete(key);
+      state.enabled = true;
+      return { verified: true };
+    }
+
     return { verified: false, error: `MFA method ${method} not implemented` };
   }
 
   async disableMfa(userId: string): Promise<void> {
     this.mfaStates.delete(userId);
+    for (const [key] of this.verificationCodes) {
+      if (key.startsWith(`${userId}:`)) {
+        this.verificationCodes.delete(key);
+      }
+    }
   }
 
   async generateBackupCodes(userId: string): Promise<string[]> {
@@ -109,5 +143,27 @@ export class DefaultMfaService implements MfaService {
     const state = this.mfaStates.get(userId);
     if (!state || !state.enabled) return [];
     return [state.method];
+  }
+
+  async sendVerificationCode(userId: string, method: MfaMethod.SMS | MfaMethod.EMAIL, contactInfo: string): Promise<SendVerificationCodeResult> {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresIn = method === MfaMethod.SMS ? 5 : 15;
+    const expiresAt = Date.now() + expiresIn * 60 * 1000;
+
+    this.verificationCodes.set(this.verificationCodeKey(userId, method), {
+      code,
+      expiresAt,
+      contactInfo,
+    });
+
+    return { sent: true, expiresIn };
+  }
+
+  async verifyCode(userId: string, code: string, method: MfaMethod.SMS | MfaMethod.EMAIL): Promise<MfaVerificationResult> {
+    return this.verifyMfa(userId, code, method);
+  }
+
+  private verificationCodeKey(userId: string, method: MfaMethod): string {
+    return `${userId}:${method}`;
   }
 }

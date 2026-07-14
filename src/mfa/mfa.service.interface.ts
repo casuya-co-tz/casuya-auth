@@ -12,6 +12,11 @@ export interface MfaVerificationResult {
   error?: string;
 }
 
+export interface SendVerificationCodeResult {
+  sent: boolean;
+  expiresIn: number;
+}
+
 export interface MfaService {
   setupMfa(userId: string, method: MfaMethod): Promise<MfaSetupResult>;
   verifyMfa(userId: string, code: string, method: MfaMethod): Promise<MfaVerificationResult>;
@@ -20,4 +25,5 @@ export interface MfaService {
   verifyBackupCode(userId: string, code: string): Promise<boolean>;
   isMfaEnabled(userId: string): Promise<boolean>;
   getEnabledMethods(userId: string): Promise<MfaMethod[]>;
+  sendVerificationCode(userId: string, method: MfaMethod.SMS | MfaMethod.EMAIL, contactInfo: string): Promise<SendVerificationCodeResult>;
 }

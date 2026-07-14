@@ -44,11 +44,19 @@ describe('LocalProvider', () => {
     expect(valid).toBe(false);
   });
 
-  it('should authenticate with email and password', async () => {
+  it('should authenticate with email and password hash', async () => {
+    const hash = await provider.hashPassword('password123');
+    const result = await provider.authenticate({
+      credentials: { email: 'test@test.com', password: 'password123', passwordHash: hash },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('should reject authentication without password hash', async () => {
     const result = await provider.authenticate({
       credentials: { email: 'test@test.com', password: 'password123' },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it('should fail authentication without credentials', async () => {

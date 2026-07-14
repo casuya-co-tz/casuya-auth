@@ -9,4 +9,5 @@ export interface TokenService {
   decodeToken(token: string): TokenPayload | null;
   revokeToken(jti: string): Promise<void>;
   isRevoked(jti: string): Promise<boolean>;
+  cleanup(): Promise<void>;
 }

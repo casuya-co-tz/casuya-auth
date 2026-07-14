@@ -6,6 +6,7 @@ export interface PasswordValidationResult {
 
 export interface PasswordResetRequest {
   token: string;
+  userId: string;
   newPassword: string;
   confirmPassword: string;
 }

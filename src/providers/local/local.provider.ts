@@ -25,10 +25,23 @@ export class LocalProvider implements AuthProvider {
 
   async authenticate(request: ProviderAuthRequest): Promise<AuthenticationResult> {
     try {
-      const { email, password } = request.credentials as { email?: string; password?: string };
+      const { email, password, passwordHash } = request.credentials as { email?: string; password?: string; passwordHash?: string };
       if (!email || !password) {
         return { success: false, error: 'Missing email or password' };
       }
+
+      // Validate credentials if a hash is provided
+      if (passwordHash) {
+        const valid = await this.validateCredentials({ password, passwordHash });
+        if (!valid) {
+          return { success: false, error: 'Invalid email or password' };
+        }
+      } else {
+        // TODO: In a real implementation, look up the passwordHash from the database
+        // and validate against it. Without a DB, authentication cannot be completed safely.
+        return { success: false, error: 'Password hash not provided; cannot validate credentials' };
+      }
+
       return {
         success: true,
         providerData: { email },

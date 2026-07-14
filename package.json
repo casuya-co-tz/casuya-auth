@@ -41,7 +41,8 @@
     "jsonwebtoken": "^9.0.2",
     "uuid": "^9.0.1",
     "speakeasy": "^2.0.0",
-    "qrcode": "^1.5.3"
+    "qrcode": "^1.5.3",
+    "@casuya/common": "workspace:*"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",

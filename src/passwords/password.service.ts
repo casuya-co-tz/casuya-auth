@@ -18,10 +18,14 @@ export interface PasswordServiceConfig {
 
 export class DefaultPasswordService implements PasswordService {
   private readonly config: PasswordServiceConfig;
+  private readonly passwordStore: Map<string, string> = new Map();
 
   constructor(config: Partial<PasswordServiceConfig> = {}) {
+    if (!config.resetTokenSecret) {
+      throw new Error('resetTokenSecret must be provided; refusing to use a default secret');
+    }
     this.config = {
-      resetTokenSecret: config.resetTokenSecret ?? 'default-reset-secret',
+      resetTokenSecret: config.resetTokenSecret,
       resetTokenExpiration: config.resetTokenExpiration ?? '1h',
       bcryptRounds: config.bcryptRounds ?? 12,
       minLength: config.minLength ?? 8,
@@ -94,7 +98,10 @@ export class DefaultPasswordService implements PasswordService {
 
   async verifyResetToken(token: string): Promise<string | null> {
     try {
-      const payload = jwt.verify(token, this.config.resetTokenSecret) as { sub: string };
+      const payload = jwt.verify(token, this.config.resetTokenSecret) as { sub: string; type?: string };
+      if (payload.type !== 'password_reset') {
+        return null;
+      }
       return payload.sub;
     } catch {
       return null;
@@ -109,6 +116,8 @@ export class DefaultPasswordService implements PasswordService {
     if (!validation.valid) {
       return false;
     }
+    const hash = await this.hashPassword(request.newPassword);
+    this.passwordStore.set(request.userId, hash);
     return true;
   }
 
@@ -120,11 +129,21 @@ export class DefaultPasswordService implements PasswordService {
     if (!validation.valid) {
       return false;
     }
+    const existingHash = this.passwordStore.get(request.userId);
+    if (existingHash && !await this.verifyPassword(request.currentPassword, existingHash)) {
+      return false;
+    }
+    const hash = await this.hashPassword(request.newPassword);
+    this.passwordStore.set(request.userId, hash);
     return true;
   }
 
   async isPasswordCompromised(password: string): Promise<boolean> {
-    const hash = await this.hashPassword(password.substring(0, 5));
-    return hash.length > 0;
+    const commonPasswords = [
+      'password', '123456', '12345678', 'qwerty', 'abc123',
+      'monkey', 'master', 'dragon', 'login', 'princess',
+      'football', 'shadow', 'sunshine', 'trustno1', 'iloveyou',
+    ];
+    return commonPasswords.includes(password.toLowerCase());
   }
 }

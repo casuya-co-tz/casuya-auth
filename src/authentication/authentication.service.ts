@@ -9,6 +9,7 @@ export class DefaultAuthenticationService implements AuthenticationService, Prov
   private readonly providers: Map<string, AuthProvider> = new Map();
   private readonly tokenService: TokenService;
   private readonly sessionStore: SessionStore;
+  private readonly emailVerificationTokens: Map<string, { userId: string; expiresAt: Date }> = new Map();
   private readonly userStore: {
     create(user: UserProfile): Promise<UserProfile>;
     findById(id: string): Promise<UserProfile | null>;
@@ -128,7 +129,7 @@ export class DefaultAuthenticationService implements AuthenticationService, Prov
       const created = await this.userStore.create(user);
       await provider.linkAccount({
         userId: created.id,
-        providerId: created.id,
+        providerId: request.profile.email,
         providerData: request.credentials,
       });
 
@@ -147,7 +148,14 @@ export class DefaultAuthenticationService implements AuthenticationService, Prov
     await this.sessionStore.invalidateAllForUser(userId);
   }
 
-  async verifyEmail(_token: string): Promise<boolean> {
+  async verifyEmail(token: string): Promise<boolean> {
+    const entry = this.emailVerificationTokens.get(token);
+    if (!entry) return false;
+    if (entry.expiresAt < new Date()) {
+      this.emailVerificationTokens.delete(token);
+      return false;
+    }
+    this.emailVerificationTokens.delete(token);
     return true;
   }
 

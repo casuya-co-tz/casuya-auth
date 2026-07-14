@@ -3,7 +3,12 @@ import { v4 as uuid } from 'uuid';
 import { TokenService } from './token.service.interface';
 import { TokenPayload, TokenPair, TokenVerificationResult, TokenType, TokenConfig } from '../interfaces';
 
-const REVOKED_TOKENS = new Set<string>();
+interface RevokedToken {
+  jti: string;
+  expiresAt: Date;
+}
+
+const REVOKED_TOKENS = new Map<string, RevokedToken>();
 
 export class JwtTokenService implements TokenService {
   private readonly config: TokenConfig;
@@ -95,12 +100,27 @@ export class JwtTokenService implements TokenService {
     }
   }
 
-  async revokeToken(jti: string): Promise<void> {
-    REVOKED_TOKENS.add(jti);
+  async revokeToken(jti: string, expiresAt?: Date): Promise<void> {
+    REVOKED_TOKENS.set(jti, { jti, expiresAt: expiresAt ?? new Date(Date.now() + 3600 * 1000) });
   }
 
   async isRevoked(jti: string): Promise<boolean> {
-    return REVOKED_TOKENS.has(jti);
+    const entry = REVOKED_TOKENS.get(jti);
+    if (!entry) return false;
+    if (entry.expiresAt < new Date()) {
+      REVOKED_TOKENS.delete(jti);
+      return false;
+    }
+    return true;
+  }
+
+  async cleanup(): Promise<void> {
+    const now = new Date();
+    for (const [jti, entry] of REVOKED_TOKENS) {
+      if (entry.expiresAt < now) {
+        REVOKED_TOKENS.delete(jti);
+      }
+    }
   }
 
   private async verifyTokenWithSecret(token: string, secret: string, expectedType: TokenType): Promise<TokenVerificationResult> {

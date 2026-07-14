@@ -47,7 +47,7 @@ export class DefaultAuthMiddleware implements AuthMiddleware {
       const token = authHeader.replace('Bearer ', '');
       const authContext = await this.authenticate(token);
 
-      if (!authContext && !options?.requireAuth === false) {
+      if (!authContext && options?.requireAuth !== false) {
         throw new Error('Invalid or expired token');
       }
 

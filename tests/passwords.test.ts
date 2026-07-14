@@ -5,6 +5,7 @@ describe('DefaultPasswordService', () => {
 
   beforeEach(() => {
     passwordService = new DefaultPasswordService({
+      resetTokenSecret: 'test-secret-for-testing',
       minLength: 8,
       maxLength: 128,
       requireUppercase: true,
