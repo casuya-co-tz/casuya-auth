@@ -34,12 +34,13 @@ export class DefaultAuthMiddleware implements AuthMiddleware {
   }
 
   requireAuth(options?: AuthMiddlewareOptions) {
-    return async (request: any, _reply: any, next?: Function) => {
-      if (options?.optional && !request.headers?.authorization) {
+    return async (request: Record<string, unknown>, _reply: Record<string, unknown>, next?: () => void) => {
+      const headers = request.headers as Record<string, unknown> | undefined;
+      if (options?.optional && !headers?.authorization) {
         return next?.();
       }
 
-      const authHeader = request.headers?.authorization as string | undefined;
+      const authHeader = headers?.authorization as string | undefined;
       if (!authHeader) {
         throw new Error('Authorization header required');
       }
@@ -57,13 +58,14 @@ export class DefaultAuthMiddleware implements AuthMiddleware {
   }
 
   requirePermission(resource: string, action: string) {
-    return async (request: any, _reply: any, next?: Function) => {
-      if (!request.auth) {
+    return async (request: Record<string, unknown>, _reply: Record<string, unknown>, next?: () => void) => {
+      const auth = request.auth as AuthenticatedRequest | undefined;
+      if (!auth) {
         throw new Error('Authentication required');
       }
 
       const result = await this.authorizationService.checkPermission({
-        userId: request.auth.userId,
+        userId: auth.userId,
         resource,
         action: action as PermissionAction,
       });
@@ -77,12 +79,13 @@ export class DefaultAuthMiddleware implements AuthMiddleware {
   }
 
   requireRole(role: string) {
-    return async (request: any, _reply: any, next?: Function) => {
-      if (!request.auth) {
+    return async (request: Record<string, unknown>, _reply: Record<string, unknown>, next?: () => void) => {
+      const auth = request.auth as AuthenticatedRequest | undefined;
+      if (!auth) {
         throw new Error('Authentication required');
       }
 
-      const hasRole = await this.authorizationService.hasRole(request.auth.userId, role);
+      const hasRole = await this.authorizationService.hasRole(auth.userId, role);
       if (!hasRole) {
         throw new Error(`Required role: ${role}`);
       }

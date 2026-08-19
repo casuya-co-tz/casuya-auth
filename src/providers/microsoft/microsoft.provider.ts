@@ -43,14 +43,14 @@ export class MicrosoftProvider extends OAuthBaseProvider {
         grant_type: 'authorization_code',
       }),
     });
-    const data: any = await response.json();
+    const data: Record<string, unknown> = await response.json() as Record<string, unknown>;
     return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresIn: data.expires_in,
-      scope: data.scope,
-      tokenType: data.token_type,
-      idToken: data.id_token,
+      accessToken: data.access_token as string,
+      refreshToken: data.refresh_token as string,
+      expiresIn: data.expires_in as number,
+      scope: data.scope as string,
+      tokenType: data.token_type as string,
+      idToken: data.id_token as string,
       raw: data,
     };
   }
@@ -59,11 +59,11 @@ export class MicrosoftProvider extends OAuthBaseProvider {
     const response = await fetch(this.config.userInfoUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    const data: any = await response.json();
+    const data: Record<string, unknown> = await response.json() as Record<string, unknown>;
     return {
-      id: data.id,
-      email: data.mail ?? data.userPrincipalName,
-      displayName: data.displayName,
+      id: data.id as string,
+      email: (data.mail ?? data.userPrincipalName) as string,
+      displayName: data.displayName as string,
       avatarUrl: undefined,
       locale: undefined,
       verified: true,

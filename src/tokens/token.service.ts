@@ -36,14 +36,14 @@ export class JwtTokenService implements TokenService {
     };
 
     const accessOpts: SignOptions = {
-      expiresIn: this.config.accessTokenExpiration as any,
+      expiresIn: this.config.accessTokenExpiration as SignOptions['expiresIn'],
       ...(this.config.issuer ? { issuer: this.config.issuer } : {}),
       ...(this.config.audience ? { audience: this.config.audience } : {}),
     };
     const accessToken = jwt.sign(accessPayload, this.config.accessTokenSecret, accessOpts);
 
     const refreshOpts: SignOptions = {
-      expiresIn: this.config.refreshTokenExpiration as any,
+      expiresIn: this.config.refreshTokenExpiration as SignOptions['expiresIn'],
       ...(this.config.issuer ? { issuer: this.config.issuer } : {}),
       ...(this.config.audience ? { audience: this.config.audience } : {}),
     };
@@ -80,7 +80,7 @@ export class JwtTokenService implements TokenService {
     };
 
     const signOpts: SignOptions = {
-      expiresIn: exp as any,
+      expiresIn: exp as SignOptions['expiresIn'],
       ...(this.config.issuer ? { issuer: this.config.issuer } : {}),
       ...(this.config.audience ? { audience: this.config.audience } : {}),
     };
@@ -125,7 +125,7 @@ export class JwtTokenService implements TokenService {
 
   private async verifyTokenWithSecret(token: string, secret: string, expectedType: TokenType): Promise<TokenVerificationResult> {
     try {
-      const verifyOpts: any = {
+      const verifyOpts: jwt.VerifyOptions = {
         ...(this.config.issuer ? { issuer: this.config.issuer } : {}),
         ...(this.config.audience ? { audience: this.config.audience } : {}),
       };

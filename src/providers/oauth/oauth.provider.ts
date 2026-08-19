@@ -2,8 +2,18 @@ import { UserProfile } from '../../interfaces';
 import { AuthenticationResult, ProviderAuthRequest, ProviderLinkRequest } from '../auth-provider.interface';
 import { OAuthProvider, OAuthProviderConfig, OAuthTokenResponse, OAuthProfile } from './oauth-provider.interface';
 
+interface LinkedAccount {
+  userId: string;
+  providerUserId: string;
+  tokenResponse: OAuthTokenResponse;
+  profile: OAuthProfile;
+  linkedAt: Date;
+}
+
 export abstract class OAuthBaseProvider implements OAuthProvider {
   abstract readonly config: OAuthProviderConfig;
+  private readonly linkedAccounts: Map<string, LinkedAccount> = new Map();
+  private readonly providerIndex: Map<string, string> = new Map();
 
   abstract getAuthorizationUrl(state: string): string;
 
@@ -54,12 +64,49 @@ export abstract class OAuthBaseProvider implements OAuthProvider {
     }
   }
 
-  async linkAccount(_request: ProviderLinkRequest): Promise<void> {
-    return;
+  async linkAccount(request: ProviderLinkRequest): Promise<void> {
+    const { userId, providerData } = request;
+    const providerUserId = providerData.providerUserId as string;
+    if (!providerUserId) {
+      throw new Error('providerUserId is required in providerData');
+    }
+    const tokenResponse: OAuthTokenResponse = {
+      accessToken: providerData.accessToken as string,
+      refreshToken: providerData.refreshToken as string | undefined,
+      expiresIn: (providerData.expiresIn as number) ?? 3600,
+      tokenType: (providerData.tokenType as string) ?? 'Bearer',
+      raw: (providerData.raw as Record<string, unknown>) ?? {},
+    };
+
+    let profile: OAuthProfile;
+    try {
+      profile = await this.getUserProfile(tokenResponse.accessToken);
+    } catch {
+      profile = {
+        id: providerUserId,
+        email: providerData.email as string ?? `${providerUserId}@oauth.local`,
+        displayName: providerData.displayName as string ?? 'OAuth User',
+        raw: providerData,
+      };
+    }
+
+    const account: LinkedAccount = {
+      userId,
+      providerUserId,
+      tokenResponse,
+      profile,
+      linkedAt: new Date(),
+    };
+    this.linkedAccounts.set(userId, account);
+    this.providerIndex.set(providerUserId, userId);
   }
 
-  async unlinkAccount(_userId: string): Promise<void> {
-    return;
+  async unlinkAccount(userId: string): Promise<void> {
+    const account = this.linkedAccounts.get(userId);
+    if (account) {
+      this.providerIndex.delete(account.providerUserId);
+      this.linkedAccounts.delete(userId);
+    }
   }
 
   async getProfile(providerUserId: string): Promise<UserProfile | null> {
@@ -78,6 +125,10 @@ export abstract class OAuthBaseProvider implements OAuthProvider {
     }
   }
 
+  getLinkedAccount(userId: string): LinkedAccount | null {
+    return this.linkedAccounts.get(userId) ?? null;
+  }
+
   async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResponse> {
     const response = await fetch(this.config.tokenUrl, {
       method: 'POST',
@@ -89,6 +140,9 @@ export abstract class OAuthBaseProvider implements OAuthProvider {
         client_secret: this.config.clientSecret,
       }),
     });
+    if (!response.ok) {
+      throw new Error(`Token refresh failed: ${response.status}`);
+    }
     const data: any = await response.json();
     return {
       accessToken: data.access_token,
@@ -101,10 +155,16 @@ export abstract class OAuthBaseProvider implements OAuthProvider {
   }
 
   async initialize(): Promise<void> {
-    return;
+    this.linkedAccounts.clear();
+    this.providerIndex.clear();
   }
 
   async healthCheck(): Promise<boolean> {
-    return true;
+    try {
+      const response = await fetch(this.config.userInfoUrl, { method: 'HEAD' });
+      return response.status < 500;
+    } catch {
+      return false;
+    }
   }
 }

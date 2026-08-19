@@ -88,7 +88,7 @@ export class DefaultPasswordService implements PasswordService {
   }
 
   async generateResetToken(userId: string): Promise<string> {
-    const signOpts: SignOptions = { expiresIn: this.config.resetTokenExpiration as any };
+    const signOpts: SignOptions = { expiresIn: this.config.resetTokenExpiration as SignOptions['expiresIn'] };
     return jwt.sign(
       { sub: userId, jti: uuid(), type: 'password_reset' },
       this.config.resetTokenSecret,

@@ -44,14 +44,14 @@ export class GoogleProvider extends OAuthBaseProvider {
         grant_type: 'authorization_code',
       }),
     });
-    const data: any = await response.json();
+    const data: Record<string, unknown> = await response.json() as Record<string, unknown>;
     return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresIn: data.expires_in,
-      scope: data.scope,
-      tokenType: data.token_type,
-      idToken: data.id_token,
+      accessToken: data.access_token as string,
+      refreshToken: data.refresh_token as string,
+      expiresIn: data.expires_in as number,
+      scope: data.scope as string,
+      tokenType: data.token_type as string,
+      idToken: data.id_token as string,
       raw: data,
     };
   }
@@ -60,14 +60,14 @@ export class GoogleProvider extends OAuthBaseProvider {
     const response = await fetch(this.config.userInfoUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    const data: any = await response.json();
+    const data: Record<string, unknown> = await response.json() as Record<string, unknown>;
     return {
-      id: data.sub,
-      email: data.email,
-      displayName: data.name,
-      avatarUrl: data.picture,
-      locale: data.locale,
-      verified: data.email_verified,
+      id: data.sub as string,
+      email: data.email as string,
+      displayName: data.name as string,
+      avatarUrl: data.picture as string,
+      locale: data.locale as string,
+      verified: data.email_verified as boolean,
       raw: data,
     };
   }
